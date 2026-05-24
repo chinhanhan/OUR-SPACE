@@ -5,6 +5,10 @@ import Dashboard from './components/Dashboard';
 import DiscussionMode from './components/DiscussionMode';
 import Login from './components/Login';
 import Archive from './components/Archive';
+import BucketList from './components/BucketList';
+import PresenceLayer from './components/PresenceLayer';
+import YearlyReport from './components/YearlyReport';
+import WeatherLayer from './components/WeatherLayer';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -14,7 +18,11 @@ function App() {
   const [actionItems, setActionItems] = useState([]);
   const [moods, setMoods] = useState([]);
   const [profiles, setProfiles] = useState([]);
-  const [view, setView] = useState('dashboard'); // 'dashboard' | 'discussion' | 'archive'
+  const [sharedSettings, setSharedSettings] = useState({ tree_experience: 0, anniversary_date: null, last_interaction_date: new Date().toISOString() });
+  const [bucketList, setBucketList] = useState([]);
+  const [timeCapsules, setTimeCapsules] = useState([]);
+  
+  const [view, setView] = useState('dashboard'); // 'dashboard' | 'discussion' | 'archive' | 'bucket_list' | 'report'
   
   const today = new Date();
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -37,9 +45,39 @@ function App() {
     const { data: moodsData } = await supabase.from('moods').select('*').eq('date', new Date().toISOString().split('T')[0]);
     if (moodsData) setMoods(moodsData);
 
-    // Fetch profiles (love languages)
+    // Fetch profiles
     const { data: profilesData } = await supabase.from('profiles').select('*');
     if (profilesData) setProfiles(profilesData);
+
+    // Fetch bucket list
+    const { data: bucketData } = await supabase.from('bucket_list').select('*').order('created_at', { ascending: false });
+    if (bucketData) setBucketList(bucketData);
+
+    // Fetch time capsules
+    const { data: capsuleData } = await supabase.from('time_capsules').select('*').order('unlock_date', { ascending: true });
+    if (capsuleData) setTimeCapsules(capsuleData);
+
+    // Fetch shared settings
+    const { data: settingsData } = await supabase.from('shared_settings').select('*').eq('id', 'global').single();
+    if (settingsData) {
+      // Tree decay logic
+      const lastInteraction = new Date(settingsData.last_interaction_date || new Date());
+      const now = new Date();
+      const diffDays = Math.floor((now - lastInteraction) / (1000 * 60 * 60 * 24));
+      
+      let newExp = settingsData.tree_experience;
+      if (diffDays >= 7) {
+        const weeksPassed = Math.floor(diffDays / 7);
+        newExp = Math.max(0, settingsData.tree_experience - (weeksPassed * 2));
+        
+        // Only update DB if it changed significantly (just once per decay cycle)
+        if (newExp < settingsData.tree_experience) {
+          await supabase.from('shared_settings').update({ tree_experience: newExp }).eq('id', 'global');
+          settingsData.tree_experience = newExp;
+        }
+      }
+      setSharedSettings(settingsData);
+    }
   };
 
   useEffect(() => {
@@ -51,19 +89,46 @@ function App() {
         const sub2 = supabase.channel('a').on('postgres_changes', { event: '*', schema: 'public', table: 'action_items' }, fetchData).subscribe();
         const sub3 = supabase.channel('m').on('postgres_changes', { event: '*', schema: 'public', table: 'moods' }, fetchData).subscribe();
         const sub4 = supabase.channel('p').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchData).subscribe();
+        const sub5 = supabase.channel('s').on('postgres_changes', { event: '*', schema: 'public', table: 'shared_settings' }, fetchData).subscribe();
+        const sub6 = supabase.channel('b').on('postgres_changes', { event: '*', schema: 'public', table: 'bucket_list' }, fetchData).subscribe();
+        const sub7 = supabase.channel('t').on('postgres_changes', { event: '*', schema: 'public', table: 'time_capsules' }, fetchData).subscribe();
 
         return () => {
           supabase.removeChannel(sub1);
           supabase.removeChannel(sub2);
           supabase.removeChannel(sub3);
           supabase.removeChannel(sub4);
+          supabase.removeChannel(sub5);
+          supabase.removeChannel(sub6);
+          supabase.removeChannel(sub7);
         };
       }
     }
   }, [isAuthenticated]);
 
+  const updateInteraction = async () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    await supabase.from('shared_settings').update({ last_interaction_date: todayStr }).eq('id', 'global');
+  };
+
   const handleAddNote = async (note) => {
     await supabase.from('notes').insert([{ type: note.type, text: note.text, author: note.author, emotion: note.emotion, image_url: note.image_url }]);
+    // Add 1 EXP
+    const { data: current } = await supabase.from('shared_settings').select('tree_experience').eq('id', 'global').single();
+    if (current) {
+      await supabase.from('shared_settings').update({ tree_experience: current.tree_experience + 1 }).eq('id', 'global');
+    }
+    await updateInteraction();
+  };
+
+  const handleAddCapsule = async (capsule) => {
+    await supabase.from('time_capsules').insert([{ text: capsule.text, author: capsule.author, image_url: capsule.image_url, unlock_date: capsule.unlock_date }]);
+    // Add 5 EXP
+    const { data: current } = await supabase.from('shared_settings').select('tree_experience').eq('id', 'global').single();
+    if (current) {
+      await supabase.from('shared_settings').update({ tree_experience: current.tree_experience + 5 }).eq('id', 'global');
+    }
+    await updateInteraction();
   };
 
   const handleArchive = async () => {
@@ -77,6 +142,22 @@ function App() {
     if (actionIds.length > 0) {
       await supabase.from('action_items').update({ status: 'archived', archive_id: archiveId }).in('id', actionIds);
     }
+    
+    // Add 10 EXP
+    const { data: current } = await supabase.from('shared_settings').select('tree_experience').eq('id', 'global').single();
+    if (current) {
+      await supabase.from('shared_settings').update({ tree_experience: current.tree_experience + 10 }).eq('id', 'global');
+    }
+    await updateInteraction();
+  };
+
+  const handleBucketListComplete = async () => {
+    // Add 30 EXP
+    const { data: current } = await supabase.from('shared_settings').select('tree_experience').eq('id', 'global').single();
+    if (current) {
+      await supabase.from('shared_settings').update({ tree_experience: current.tree_experience + 30 }).eq('id', 'global');
+    }
+    await updateInteraction();
   };
 
   const handleSetActionItems = async (newActionItems) => {
@@ -99,8 +180,12 @@ function App() {
     await supabase.from('moods').insert([{ author, mood_emoji: emoji, date: todayStr }]);
   };
 
-  const handleSetLoveLanguage = async (language) => {
-    await supabase.from('profiles').upsert([{ author, love_language: language }]);
+  const handleUpdateProfile = async (updates) => {
+    await supabase.from('profiles').upsert([{ author, ...updates }]);
+  };
+
+  const handleUpdateSharedSettings = async (updates) => {
+    await supabase.from('shared_settings').update(updates).eq('id', 'global');
   };
 
   if (!isAuthenticated) return <Login onLogin={() => setIsAuthenticated(true)} />;
@@ -108,11 +193,11 @@ function App() {
   if (!author) {
     return (
       <div className="container animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-        <div className="card text-center">
+        <div className="card text-center" style={{ background: 'var(--glass-bg)', backdropFilter: 'var(--glass-blur)' }}>
           <h2 style={{ marginBottom: '2rem' }}>你是谁？</h2>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-            <button className="btn btn-outline" onClick={() => setAuthor('男方')} style={{ fontSize: '1.2rem', padding: '1rem 2rem' }}>👦 男方</button>
-            <button className="btn btn-outline" onClick={() => setAuthor('女方')} style={{ fontSize: '1.2rem', padding: '1rem 2rem' }}>👧 女方</button>
+            <button className="btn btn-outline" onClick={() => setAuthor('男方')} style={{ fontSize: '1.2rem', padding: '1rem 2rem', background: 'rgba(255,255,255,0.8)' }}>👦 男方</button>
+            <button className="btn btn-outline" onClick={() => setAuthor('女方')} style={{ fontSize: '1.2rem', padding: '1rem 2rem', background: 'rgba(255,255,255,0.8)' }}>👧 女方</button>
           </div>
           <p className="text-light" style={{ marginTop: '1.5rem', fontSize: '0.9rem' }}>设备会记住你的身份，之后不用再选。</p>
         </div>
@@ -121,42 +206,61 @@ function App() {
   }
 
   return (
-    <div className="container animate-fade-in">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h2>🕊️ Our Space</h2>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {view === 'archive' && <button className="btn btn-outline" onClick={() => setView('dashboard')}>返回首页</button>}
-          {view === 'dashboard' && <button className="btn btn-outline" onClick={() => setView('archive')}>往期回忆</button>}
-          {view === 'dashboard' && <button className="btn btn-primary" onClick={() => setView('discussion')}>进入讨论日</button>}
-          {view === 'discussion' && <button className="btn btn-outline" onClick={() => setView('dashboard')}>退出讨论</button>}
-        </div>
-      </header>
+    <>
+      <WeatherLayer notes={notes} />
+      <PresenceLayer author={author} />
+      
+      <div className="container animate-fade-in">
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <h2 style={{ color: 'var(--color-primary)' }}>🕊️ Our Space</h2>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {view !== 'dashboard' && <button className="btn btn-outline" onClick={() => setView('dashboard')}>返回首页</button>}
+            {view === 'dashboard' && (
+              <>
+                <button className="btn btn-outline" onClick={() => setView('archive')}>往期回忆</button>
+                <button className="btn btn-outline" style={{ borderColor: '#fec89a', color: '#E07A5F' }} onClick={() => setView('bucket_list')}>🌟 愿望</button>
+                <button className="btn btn-outline" style={{ borderColor: '#ffb5a7', color: '#C66248' }} onClick={() => setView('report')}>📊 年度报告</button>
+                <button className="btn btn-primary" onClick={() => setView('discussion')}>进入讨论日</button>
+              </>
+            )}
+          </div>
+        </header>
 
-      <main>
-        {view === 'dashboard' && (
-          <Dashboard
-            notes={notes}
-            onAddNote={handleAddNote}
-            nextDate={nextDiscussionDate}
-            author={author}
-            moods={moods}
-            onAddMood={handleAddMood}
-            profiles={profiles}
-            onSetLoveLanguage={handleSetLoveLanguage}
-          />
-        )}
-        {view === 'discussion' && (
-          <DiscussionMode
-            notes={notes}
-            actionItems={actionItems}
-            setActionItems={handleSetActionItems}
-            onFinish={handleArchive}
-            onBack={() => setView('dashboard')}
-          />
-        )}
-        {view === 'archive' && <Archive />}
-      </main>
-    </div>
+        <main>
+          {view === 'dashboard' && (
+            <Dashboard
+              notes={notes}
+              onAddNote={handleAddNote}
+              onAddCapsule={handleAddCapsule}
+              nextDate={nextDiscussionDate}
+              author={author}
+              moods={moods}
+              onAddMood={handleAddMood}
+              profiles={profiles}
+              onUpdateProfile={handleUpdateProfile}
+              sharedSettings={sharedSettings}
+              onUpdateSharedSettings={handleUpdateSharedSettings}
+            />
+          )}
+          {view === 'discussion' && (
+            <DiscussionMode
+              notes={notes}
+              actionItems={actionItems}
+              setActionItems={handleSetActionItems}
+              onFinish={handleArchive}
+              onBack={() => setView('dashboard')}
+            />
+          )}
+          {view === 'archive' && <Archive capsules={timeCapsules} />}
+          {view === 'bucket_list' && (
+            <BucketList items={bucketList} onBack={() => setView('dashboard')} onCompleteItem={handleBucketListComplete} />
+          )}
+          {view === 'report' && (
+            <YearlyReport notes={notes} bucketList={bucketList} sharedSettings={sharedSettings} onBack={() => setView('dashboard')} />
+          )}
+        </main>
+      </div>
+    </>
   );
 }
 
