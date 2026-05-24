@@ -13,6 +13,7 @@ function App() {
   const [notes, setNotes] = useState([]);
   const [actionItems, setActionItems] = useState([]);
   const [moods, setMoods] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [view, setView] = useState('dashboard'); // 'dashboard' | 'discussion' | 'archive'
   
   const today = new Date();
@@ -23,36 +24,22 @@ function App() {
     if (import.meta.env.VITE_SUPABASE_URL === 'your_supabase_project_url' || !import.meta.env.VITE_SUPABASE_URL) return;
 
     // Fetch active notes
-    const { data: notesData } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('status', 'sealed')
-      .order('created_at', { ascending: true });
-    
+    const { data: notesData } = await supabase.from('notes').select('*').eq('status', 'sealed').order('created_at', { ascending: true });
     if (notesData) setNotes(notesData);
 
     // Fetch active action items
-    const { data: actionsData } = await supabase
-      .from('action_items')
-      .select('*')
-      .eq('status', 'active')
-      .order('created_at', { ascending: true });
-    
+    const { data: actionsData } = await supabase.from('action_items').select('*').eq('status', 'active').order('created_at', { ascending: true });
     if (actionsData) {
-      setActionItems(actionsData.map(item => ({
-        id: item.id,
-        text: item.text,
-        isCompleted: item.is_completed,
-        assignee: item.assignee
-      })));
+      setActionItems(actionsData.map(item => ({ id: item.id, text: item.text, isCompleted: item.is_completed, assignee: item.assignee })));
     }
 
     // Fetch today's moods
-    const { data: moodsData } = await supabase
-      .from('moods')
-      .select('*')
-      .eq('date', new Date().toISOString().split('T')[0]);
+    const { data: moodsData } = await supabase.from('moods').select('*').eq('date', new Date().toISOString().split('T')[0]);
     if (moodsData) setMoods(moodsData);
+
+    // Fetch profiles (love languages)
+    const { data: profilesData } = await supabase.from('profiles').select('*');
+    if (profilesData) setProfiles(profilesData);
   };
 
   useEffect(() => {
@@ -63,23 +50,20 @@ function App() {
         const sub1 = supabase.channel('n').on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, fetchData).subscribe();
         const sub2 = supabase.channel('a').on('postgres_changes', { event: '*', schema: 'public', table: 'action_items' }, fetchData).subscribe();
         const sub3 = supabase.channel('m').on('postgres_changes', { event: '*', schema: 'public', table: 'moods' }, fetchData).subscribe();
+        const sub4 = supabase.channel('p').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchData).subscribe();
 
         return () => {
           supabase.removeChannel(sub1);
           supabase.removeChannel(sub2);
           supabase.removeChannel(sub3);
+          supabase.removeChannel(sub4);
         };
       }
     }
   }, [isAuthenticated]);
 
   const handleAddNote = async (note) => {
-    await supabase.from('notes').insert([{ 
-      type: note.type, 
-      text: note.text,
-      author: note.author,
-      emotion: note.emotion
-    }]);
+    await supabase.from('notes').insert([{ type: note.type, text: note.text, author: note.author, emotion: note.emotion, image_url: note.image_url }]);
   };
 
   const handleArchive = async () => {
@@ -98,11 +82,7 @@ function App() {
   const handleSetActionItems = async (newActionItems) => {
     if (newActionItems.length > actionItems.length) {
       const addedItem = newActionItems[newActionItems.length - 1];
-      await supabase.from('action_items').insert([{ 
-        text: addedItem.text, 
-        is_completed: false,
-        assignee: addedItem.assignee
-      }]);
+      await supabase.from('action_items').insert([{ text: addedItem.text, is_completed: false, assignee: addedItem.assignee }]);
     } else {
       for (const newItem of newActionItems) {
         const oldItem = actionItems.find(a => a.id === newItem.id);
@@ -114,10 +94,13 @@ function App() {
   };
 
   const handleAddMood = async (emoji) => {
-    // Delete existing mood for today for this author, then insert
     const todayStr = new Date().toISOString().split('T')[0];
     await supabase.from('moods').delete().eq('author', author).eq('date', todayStr);
     await supabase.from('moods').insert([{ author, mood_emoji: emoji, date: todayStr }]);
+  };
+
+  const handleSetLoveLanguage = async (language) => {
+    await supabase.from('profiles').upsert([{ author, love_language: language }]);
   };
 
   if (!isAuthenticated) return <Login onLogin={() => setIsAuthenticated(true)} />;
@@ -142,7 +125,7 @@ function App() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h2>🕊️ Our Space</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {view === 'archive' && <button className="btn btn-outline" onClick={() => setView('dashboard')}>返回</button>}
+          {view === 'archive' && <button className="btn btn-outline" onClick={() => setView('dashboard')}>返回首页</button>}
           {view === 'dashboard' && <button className="btn btn-outline" onClick={() => setView('archive')}>往期回忆</button>}
           {view === 'dashboard' && <button className="btn btn-primary" onClick={() => setView('discussion')}>进入讨论日</button>}
           {view === 'discussion' && <button className="btn btn-outline" onClick={() => setView('dashboard')}>退出讨论</button>}
@@ -158,6 +141,8 @@ function App() {
             author={author}
             moods={moods}
             onAddMood={handleAddMood}
+            profiles={profiles}
+            onSetLoveLanguage={handleSetLoveLanguage}
           />
         )}
         {view === 'discussion' && (

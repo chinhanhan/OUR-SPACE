@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { supabase } from '../lib/supabase';
 
-const Dashboard = ({ notes, onAddNote, nextDate, author, moods = [], onAddMood }) => {
+const Dashboard = ({ notes, onAddNote, nextDate, author, moods = [], onAddMood, profiles = [], onSetLoveLanguage }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [type, setType] = useState('appreciation');
   const [text, setText] = useState('');
@@ -63,8 +63,60 @@ const Dashboard = ({ notes, onAddNote, nextDate, author, moods = [], onAddMood }
     return me ? me.mood_emoji : '❓';
   };
 
+  const myProfile = profiles.find(p => p.author === author);
+  const partnerProfile = profiles.find(p => p.author !== author);
+  const loveLanguages = ['肯定言辞', '高品质陪伴', '收到礼物', '服务行动', '身体接触'];
+
+  const getPartnerLoveLanguageTip = (ll) => {
+    switch (ll) {
+      case '肯定言辞': return '夸夸Ta，发一条真诚的赞美消息。';
+      case '高品质陪伴': return '放下手机，专心陪Ta聊聊天或看一部电影。';
+      case '收到礼物': return '下班路上给Ta带个小甜点或者小花。';
+      case '服务行动': return '顺手帮Ta倒杯水，或者主动洗个碗。';
+      case '身体接触': return '给Ta一个大大的拥抱，或者牵牵手。';
+      default: return '了解Ta的爱语，用Ta喜欢的方式去爱。';
+    }
+  };
+
   return (
     <div className="dashboard text-center">
+      
+      {/* 爱的五种语言 Module */}
+      <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem', backgroundColor: 'rgba(253, 252, 240, 0.5)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '2rem' }}>
+          
+          <div style={{ flex: 1, textAlign: 'left', borderRight: '1px solid var(--color-border)', paddingRight: '1.5rem' }}>
+            <h4 style={{ marginBottom: '1rem', color: 'var(--color-primary)' }}>我的爱语</h4>
+            {myProfile?.love_language ? (
+              <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{myProfile.love_language}</div>
+            ) : (
+              <div>
+                <p className="text-light" style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>你最希望对方怎么表达爱？</p>
+                <select className="form-control" onChange={(e) => onSetLoveLanguage(e.target.value)} defaultValue="">
+                  <option value="" disabled>选择你的爱语...</option>
+                  {loveLanguages.map(ll => <option key={ll} value={ll}>{ll}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <h4 style={{ marginBottom: '1rem', color: 'var(--color-danger)' }}>对方的爱语</h4>
+            {partnerProfile?.love_language ? (
+              <div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>{partnerProfile.love_language}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', backgroundColor: 'var(--color-bg)', padding: '0.5rem', borderRadius: 'var(--radius-sm)' }}>
+                  💡 <b>今日小贴士:</b> {getPartnerLoveLanguageTip(partnerProfile.love_language)}
+                </div>
+              </div>
+            ) : (
+              <p className="text-light" style={{ fontSize: '0.85rem' }}>等待对方设置...</p>
+            )}
+          </div>
+
+        </div>
+      </div>
+
       <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
         <div>
           <div className="text-light" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>对方今天的心情</div>
