@@ -25,6 +25,7 @@ const Dashboard = ({ notes, onAddNote, onAddCapsule, nextDate, author, moods = [
   const [wrongdoing, setWrongdoing] = useState('');
   const [generatedApology, setGeneratedApology] = useState('');
   const [isGeneratingApology, setIsGeneratingApology] = useState(false);
+  const [isEditingAnniversary, setIsEditingAnniversary] = useState(false);
 
   useEffect(() => {
     const calculateDaysLeft = () => {
@@ -211,22 +212,62 @@ const Dashboard = ({ notes, onAddNote, onAddCapsule, nextDate, author, moods = [
         {/* Row 1: Hero Card (span 2) */}
         <div ref={tiltRefTree} className="card bento-col-2" style={{ padding: '0', overflow: 'hidden' }}>
           <div style={{ padding: '2.5rem 2rem', background: 'var(--glass-bg)' }}>
-            {sharedSettings.anniversary_date ? (
+            {sharedSettings.anniversary_date && !isEditingAnniversary ? (
               <div style={{ textAlign: 'center' }}>
                 <h3 className="text-light" style={{ fontWeight: 400, marginBottom: '0.5rem', fontSize: '1.1rem' }}>我们相爱的第</h3>
-                <div style={{ fontSize: '3.8rem', fontWeight: 700, color: 'var(--color-primary)', lineHeight: 1 }}>
-                  {calculateDaysTogether()} <span style={{ fontSize: '1.2rem', color: 'var(--color-text-light)', fontWeight: 400 }}>天</span>
+                <div style={{ fontSize: '3.8rem', fontWeight: 700, color: 'var(--color-primary)', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <span>{calculateDaysTogether()}</span>
+                  <span style={{ fontSize: '1.2rem', color: 'var(--color-text-light)', fontWeight: 400, marginRight: '0.2rem' }}>天</span>
+                  <button 
+                    type="button" 
+                    onClick={() => { playPopSound(); setIsEditingAnniversary(true); }}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.3)',
+                      border: '1px solid var(--glass-border)',
+                      borderRadius: '50%',
+                      width: '28px',
+                      height: '28px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+                    }}
+                    title="修改纪念日"
+                  >
+                    ✏️
+                  </button>
                 </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center' }}>
                 <p className="text-light" style={{ marginBottom: '1rem' }}>设定纪念日，开启你们 hometown 爱情树</p>
-                <input 
-                  type="date" 
-                  className="form-control" 
-                  style={{ width: 'auto', display: 'inline-block' }}
-                  onChange={(e) => onUpdateSharedSettings({ anniversary_date: e.target.value })}
-                />
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    style={{ width: 'auto', display: 'inline-block' }}
+                    defaultValue={sharedSettings.anniversary_date || ''}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        onUpdateSharedSettings({ anniversary_date: e.target.value });
+                        setIsEditingAnniversary(false);
+                      }
+                    }}
+                  />
+                  {sharedSettings.anniversary_date && (
+                    <button 
+                      type="button" 
+                      className="btn btn-outline" 
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
+                      onClick={() => setIsEditingAnniversary(false)}
+                    >
+                      取消
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             <LoveTree experience={sharedSettings.tree_experience || 0} />
