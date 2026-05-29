@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export function useLocalStorage(key, initialValue) {
   // Get from local storage then
@@ -33,11 +33,6 @@ export function useLocalStorage(key, initialValue) {
       console.warn(`Error setting localStorage key “${key}”:`, error);
     }
   };
-
-  useEffect(() => {
-    setStoredValue(readValue());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return [storedValue, setValue];
 }

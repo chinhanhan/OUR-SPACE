@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 import LoveTree from './LoveTree';
 import { supabase } from '../lib/supabase';
@@ -6,12 +6,13 @@ import { generateApology } from '../lib/gemini';
 import { useTilt } from '../hooks/useTilt';
 import { playPopSound, playChimeSound } from '../utils/audio';
 import CanvasDoodle from './CanvasDoodle';
+import { compressImage } from '../utils/image';
 
-const Dashboard = ({ notes, onAddNote, onAddCapsule, nextDate, author, moods = [], onAddMood, profiles = [], onUpdateProfile, sharedSettings, onUpdateSharedSettings }) => {
+const Dashboard = ({ onAddNote, onAddCapsule, nextDate, author, moods = [], onAddMood, profiles = [], onUpdateProfile, sharedSettings, onUpdateSharedSettings }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [type, setType] = useState('appreciation');
   const [inputMode, setInputMode] = useState('text'); // 'text' or 'doodle'
-  const doodleRef = React.useRef(null);
+  const doodleRef = useRef(null);
   
   const [text, setText] = useState('');
   const [emotion, setEmotion] = useState('');
@@ -61,13 +62,16 @@ const Dashboard = ({ notes, onAddNote, onAddCapsule, nextDate, author, moods = [
     }
 
     let imageUrl = null;
-    const fileToUpload = doodleBlob || imageFile;
+    let fileToUpload = doodleBlob || imageFile;
     
     if (fileToUpload) {
       setIsUploading(true);
-      const fileExt = doodleBlob ? 'png' : imageFile.name.split('.').pop();
+      if (imageFile && fileToUpload === imageFile) {
+        fileToUpload = await compressImage(imageFile);
+      }
+      const fileExt = doodleBlob ? 'png' : 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const { data, error } = await supabase.storage.from('media').upload(fileName, fileToUpload);
+      const { error } = await supabase.storage.from('media').upload(fileName, fileToUpload);
       
       if (!error) {
         const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);

@@ -1,27 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 const WeatherLayer = ({ notes = [] }) => {
   const canvasRef = useRef(null);
-  const [weatherType, setWeatherType] = useState('clear'); // 'clear', 'rain', 'sunshine'
 
-  useEffect(() => {
-    // Determine weather based on recent notes (last 7 days)
+  // Derive weather type from notes
+  const weatherType = (() => {
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
     const recentNotes = notes.filter(n => new Date(n.created_at) >= sevenDaysAgo);
     
     const appreciation = recentNotes.filter(n => n.type === 'appreciation').length;
     const concern = recentNotes.filter(n => n.type === 'concern').length;
 
     if (concern > appreciation && concern > 0) {
-      setWeatherType('rain');
+      return 'rain';
     } else if (appreciation > concern && appreciation > 2) {
-      setWeatherType('sunshine');
-    } else {
-      setWeatherType('clear');
+      return 'sunshine';
     }
-  }, [notes]);
+    return 'clear';
+  })();
 
   useEffect(() => {
     const canvas = canvasRef.current;

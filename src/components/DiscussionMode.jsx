@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getAiAdvice } from '../lib/gemini';
 
 const DEEP_QUESTIONS = [
@@ -19,16 +19,13 @@ const DiscussionMode = ({ notes, actionItems, setActionItems, onFinish, onBack }
   
   const [aiAdvice, setAiAdvice] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [randomQuestions, setRandomQuestions] = useState([]);
+  const [randomQuestions] = useState(() => {
+    const shuffled = [...DEEP_QUESTIONS].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 2);
+  });
 
   const appreciations = notes.filter(n => n.type === 'appreciation');
   const concerns = notes.filter(n => n.type === 'concern');
-
-  useEffect(() => {
-    // Pick 2 random deep questions when component mounts
-    const shuffled = [...DEEP_QUESTIONS].sort(() => 0.5 - Math.random());
-    setRandomQuestions(shuffled.slice(0, 2));
-  }, []);
 
   const handleNext = () => {
     setAiAdvice(''); // Clear AI advice on next card

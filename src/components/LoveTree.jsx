@@ -1,21 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const LoveTree = ({ experience }) => {
-  const [stage, setStage] = useState(1);
-  const [prevExp, setPrevExp] = useState(experience);
+  const prevExpRef = useRef(experience);
   const [showExpGain, setShowExpGain] = useState(false);
 
-  useEffect(() => {
-    if (experience > prevExp) {
-      setShowExpGain(true);
-      setTimeout(() => setShowExpGain(false), 2000);
-    }
-    setPrevExp(experience);
+  const stage = experience < 5 ? 1 : experience < 15 ? 2 : experience < 30 ? 3 : 4;
 
-    if (experience < 5) setStage(1); // Seed
-    else if (experience < 15) setStage(2); // Sprout
-    else if (experience < 30) setStage(3); // Tree
-    else setStage(4); // Tree with Hearts/Apples
+  useEffect(() => {
+    if (experience > prevExpRef.current) {
+      const showTimer = setTimeout(() => {
+        setShowExpGain(true);
+      }, 50);
+      const hideTimer = setTimeout(() => {
+        setShowExpGain(false);
+      }, 2000);
+      prevExpRef.current = experience;
+      return () => {
+        clearTimeout(showTimer);
+        clearTimeout(hideTimer);
+      };
+    }
+    prevExpRef.current = experience;
   }, [experience]);
 
   const renderStage1 = () => (

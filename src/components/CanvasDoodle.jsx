@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 const CanvasDoodle = forwardRef((props, ref) => {
   const canvasRef = useRef(null);
@@ -32,7 +32,6 @@ const CanvasDoodle = forwardRef((props, ref) => {
   const initCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const parent = canvas.parentElement;
     
     // Set display size
     canvas.style.width = '100%';

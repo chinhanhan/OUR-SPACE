@@ -32,7 +32,7 @@ export const playPopSound = () => {
     
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.1);
-  } catch(e) {
+  } catch {
     // Ignore audio errors (e.g. if user hasn't interacted with page yet)
   }
 };
@@ -67,5 +67,7 @@ export const playChimeSound = () => {
     playNote(659.25, now + 0.1, 1.0); // E5
     playNote(783.99, now + 0.2, 1.5); // G5
     playNote(1046.50, now + 0.35, 2.0); // C6
-  } catch(e) {}
+  } catch {
+    // Ignore audio errors
+  }
 };

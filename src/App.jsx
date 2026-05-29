@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Dashboard from './components/Dashboard';
@@ -9,6 +9,13 @@ import BucketList from './components/BucketList';
 import PresenceLayer from './components/PresenceLayer';
 import YearlyReport from './components/YearlyReport';
 import WeatherLayer from './components/WeatherLayer';
+import PhotoWall from './components/PhotoWall';
+import FlipTimerHub from './components/FlipTimerHub';
+import LoveLetters from './components/LoveLetters';
+import MilestoneRoadmap from './components/MilestoneRoadmap';
+import RadarChart from './components/RadarChart';
+import DriftBottles from './components/DriftBottles';
+import { playPopSound } from './utils/audio';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,6 +30,7 @@ function App() {
   const [timeCapsules, setTimeCapsules] = useState([]);
   
   const [view, setView] = useState('dashboard'); // 'dashboard' | 'discussion' | 'archive' | 'bucket_list' | 'report'
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   
   const today = new Date();
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -65,10 +73,9 @@ function App() {
       const now = new Date();
       const diffDays = Math.floor((now - lastInteraction) / (1000 * 60 * 60 * 24));
       
-      let newExp = settingsData.tree_experience;
       if (diffDays >= 7) {
         const weeksPassed = Math.floor(diffDays / 7);
-        newExp = Math.max(0, settingsData.tree_experience - (weeksPassed * 2));
+        const newExp = Math.max(0, settingsData.tree_experience - (weeksPassed * 2));
         
         // Only update DB if it changed significantly (just once per decay cycle)
         if (newExp < settingsData.tree_experience) {
@@ -82,6 +89,7 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchData();
 
       if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'your_supabase_project_url') {
@@ -209,22 +217,53 @@ function App() {
     <>
       <WeatherLayer notes={notes} />
       <PresenceLayer author={author} />
+      <DriftBottles notes={notes} author={author} isBackgroundOnly={true} />
       
       <div className="container animate-fade-in">
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h2 style={{ color: 'var(--color-primary)' }}>🕊️ Our Space</h2>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {view !== 'dashboard' && <button className="btn btn-outline" onClick={() => setView('dashboard')}>返回首页</button>}
+            {view !== 'dashboard' && <button className="btn btn-outline" onClick={() => { playPopSound(); setView('dashboard'); }}>返回首页</button>}
             {view === 'dashboard' && (
               <>
-                <button className="btn btn-outline" onClick={() => setView('archive')}>往期回忆</button>
-                <button className="btn btn-outline" style={{ borderColor: '#fec89a', color: '#E07A5F' }} onClick={() => setView('bucket_list')}>🌟 愿望</button>
-                <button className="btn btn-outline" style={{ borderColor: '#ffb5a7', color: '#C66248' }} onClick={() => setView('report')}>📊 年度报告</button>
-                <button className="btn btn-primary" onClick={() => setView('discussion')}>进入讨论日</button>
+                <button className="btn btn-outline" onClick={() => { playPopSound(); setView('archive'); }}>往期回忆</button>
+                <button className="btn btn-outline" style={{ borderColor: '#fec89a', color: '#E07A5F' }} onClick={() => { playPopSound(); setView('bucket_list'); }}>🌟 愿望</button>
+                <button className="btn btn-outline" style={{ borderColor: '#a2d2ff', color: '#0077b6' }} onClick={() => { playPopSound(); setView('photo_wall'); }}>📷 回忆墙</button>
+                <button 
+                  className="btn btn-outline" 
+                  style={{ borderColor: '#c8b6ff', color: '#7b2cbf' }}
+                  onClick={() => { playPopSound(); setShowMoreMenu(!showMoreMenu); }}
+                >
+                  ⚙️ 更多浪漫
+                </button>
+                <button className="btn btn-primary" onClick={() => { playPopSound(); setView('discussion'); }}>进入讨论日</button>
               </>
             )}
           </div>
         </header>
+
+        {showMoreMenu && view === 'dashboard' && (
+          <div 
+            className="card animate-fade-in" 
+            style={{ 
+              display: 'flex', 
+              gap: '1rem', 
+              flexWrap: 'wrap', 
+              justifyContent: 'center', 
+              padding: '1rem', 
+              marginBottom: '2rem', 
+              background: 'var(--glass-bg)', 
+              borderColor: 'rgba(123, 44, 191, 0.2)' 
+            }}
+          >
+            <button className="btn btn-outline" style={{ borderColor: '#ffb5a7', color: '#C66248' }} onClick={() => { playPopSound(); setShowMoreMenu(false); setView('report'); }}>📊 年度报告</button>
+            <button className="btn btn-outline" style={{ borderColor: '#ffc6ff', color: '#b5179e' }} onClick={() => { playPopSound(); setShowMoreMenu(false); setView('milestones'); }}>🗺️ 时光足迹</button>
+            <button className="btn btn-outline" style={{ borderColor: '#bdb2ff', color: '#560bad' }} onClick={() => { playPopSound(); setShowMoreMenu(false); setView('radar_chart'); }}>📊 情感雷达</button>
+            <button className="btn btn-outline" style={{ borderColor: '#ffadad', color: '#9d0208' }} onClick={() => { playPopSound(); setShowMoreMenu(false); setView('love_letters'); }}>✉️ 火漆信箱</button>
+            <button className="btn btn-outline" style={{ borderColor: '#caffbf', color: '#38b000' }} onClick={() => { playPopSound(); setShowMoreMenu(false); setView('flip_clocks'); }}>⏰ 翻翻时钟</button>
+            <button className="btn btn-outline" style={{ borderColor: '#a2d2ff', color: '#0077b6' }} onClick={() => { playPopSound(); setShowMoreMenu(false); setView('drift_bottles'); }}>🌊 漂流瓶</button>
+          </div>
+        )}
 
         <main>
           {view === 'dashboard' && (
@@ -252,6 +291,29 @@ function App() {
             />
           )}
           {view === 'archive' && <Archive capsules={timeCapsules} />}
+          {view === 'photo_wall' && (
+            <PhotoWall 
+              notes={notes} 
+              bucketList={bucketList} 
+              timeCapsules={timeCapsules} 
+              onBack={() => setView('dashboard')} 
+            />
+          )}
+          {view === 'milestones' && (
+            <MilestoneRoadmap notes={notes} bucketList={bucketList} sharedSettings={sharedSettings} onBack={() => setView('dashboard')} />
+          )}
+          {view === 'radar_chart' && (
+            <RadarChart notes={notes} bucketList={bucketList} profiles={profiles} sharedSettings={sharedSettings} onBack={() => setView('dashboard')} />
+          )}
+          {view === 'love_letters' && (
+            <LoveLetters capsules={timeCapsules} author={author} onBack={() => setView('dashboard')} />
+          )}
+          {view === 'flip_clocks' && (
+            <FlipTimerHub sharedSettings={sharedSettings} onBack={() => setView('dashboard')} />
+          )}
+          {view === 'drift_bottles' && (
+            <DriftBottles notes={notes} author={author} onBack={() => setView('dashboard')} />
+          )}
           {view === 'bucket_list' && (
             <BucketList items={bucketList} onBack={() => setView('dashboard')} onCompleteItem={handleBucketListComplete} />
           )}
